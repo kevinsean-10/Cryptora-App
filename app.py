@@ -181,7 +181,7 @@ if mode == "🔒 Encryption":
         df = pd.read_excel(upload_file_encrypted, sheet_name=selected_sheet)
         st.dataframe(df)
 
-        encryption_key_entry = st.text_input("🗝️ Enter encryption key:", type="password")
+        encryption_key_entry = st.text_input("🗝️ Set encryption key:", type="password")
 
         if st.button("Encrypt"):
             try:
