@@ -6,18 +6,21 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
+
+from utils import decrypt_df, encrypt_df
 import base64
 import logging
 import sys
 import traceback
 
 # Set up logging to file that will work in both script and exe mode
-log_dir = os.path.join(os.path.dirname(__file__), "logs")
+log_dir = os.path.join(os.path.dirname(__file__), "__logs")
 os.makedirs(log_dir, exist_ok=True)
 # log_file = os.path.join(os.path.expanduser("~"), "email_extraction_log.txt")
-log_file = os.path.join(log_dir, "encryption-decryption_log.txt")
+log_file = os.path.join(log_dir, "encryption-decryption.log")
 logging.basicConfig(
     filename=log_file,
+    filemode='w',
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
@@ -183,28 +186,13 @@ class DecryptionApp:
             ):
 
         self.log_message("Decrypting File...")
-        with open(file_path, "rb") as file:
-            full_content = file.read()
-
-        self.salt = full_content[:16] 
-        encrypted_data = full_content[16:] 
 
         try:
-            kdf = PBKDF2HMAC(
-                algorithm=hashes.SHA256(),
-                length=32,
-                salt=self.salt,
-                iterations=100000,
-                backend=default_backend()
-            )
-
-            secret_key = base64.urlsafe_b64encode(kdf.derive(password))
-            cipher = Fernet(secret_key)
-            decrypted_data = cipher.decrypt(encrypted_data)
-            decrypted_json = decrypted_data.decode()
-
             self.log_message("Reading json file...")
-            self.df = pd.read_json(decrypted_json)
+            self.df = decrypt_df(
+                file_path=file_path,
+                password=password
+            )
 
             self.preview_excel()
 
@@ -213,7 +201,6 @@ class DecryptionApp:
             self.decrypt_button.destroy()
             self.label_clicked_file_path.destroy()
 
-            # Save button
             self.save_button = tk.Button(
                 self.decryption_frame,
                 text="Save to Excel", 
@@ -356,8 +343,6 @@ class EncryptionApp:
 
     def log_message(self, message):
         """Add message to both UI and log file"""
-        # self.result_text.insert(tk.END, message + "\n")
-        # self.result_text.see(tk.END)
         logging.info(message)
 
     def encrypt_df(
@@ -365,22 +350,11 @@ class EncryptionApp:
             df,
             password
         ):
-        
-        self.log_message("Encrypting data")
-        df_json = df.to_json()
-        self.salt = os.urandom(16)  # 16 random bytes
 
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=self.salt,
-            iterations=100000,
-            backend=default_backend()
+        salt, encrypted_data = encrypt_df(
+            df=df,
+            password=password
         )
-
-        self.secret_key = base64.urlsafe_b64encode(kdf.derive(password))
-        self.cipher = Fernet(self.secret_key)
-        self.encrypted_data = self.cipher.encrypt(df_json.encode())  # encode to bytes first
 
         # Save the encrypted data
         self.log_message(f"Selecting save directory...")
@@ -390,19 +364,17 @@ class EncryptionApp:
             filetypes=[("Binary files", "*.bin")],
             initialfile=os.path.splitext(os.path.basename(self.original_file_path))[0] + ".bin"
         )
-        print(self.encrypted_file_path)
 
         self.log_message(f"Saving encrypted file path to {self.encrypted_file_path}.")
         if not self.encrypted_file_path:
             messagebox.showwarning("Cancelled", "No file was selected for saving.")
             return
 
-        # Write self.salt + encrypted data into file
+        # Write salt + encrypted data into file
         try:
             with open(self.encrypted_file_path, "wb") as file:
-                file.write(self.salt + self.encrypted_data)
+                file.write(salt + encrypted_data)
 
-            # Show success message after saving
             messagebox.showinfo("Success", "Data encrypted and saved successfully!")
             App(self.root)
             self.encryption_frame.destroy()
@@ -416,7 +388,6 @@ class EncryptionApp:
 
         self.root.title("Encryption Properties")
 
-        # Label for title
         self.new_label_title = tk.Label(
             self.encryption_frame, 
             text="Encryption Properties".upper(), 
@@ -429,7 +400,6 @@ class EncryptionApp:
         )
         self.new_label_title.pack(pady=10)
 
-        # Create an input text field for entering encryption key
         self.encryption_key_label = tk.Label(
             self.encryption_frame, 
             text="Enter Encryption Key:", 
@@ -644,5 +614,3 @@ if __name__ == "__main__":
         except:
             # If even the messagebox fails, write to stderr
             print(f"CRITICAL ERROR: {str(e)}", file=sys.stderr)
-
-        
