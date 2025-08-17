@@ -32,4 +32,4 @@ python run.py tkinter
 ```
 
 # 🖥️ Demo
-![🎞️ DEMO (Youtube)](https://img.youtube.com/vi/C7VzYv-lD1Y/0.jpg)(https://youtu.be/C7VzYv-lD1Y)
+[![🎞️ DEMO (Youtube)](https://img.youtube.com/vi/C7VzYv-lD1Y/0.jpg)](https://youtu.be/C7VzYv-lD1Y)
